@@ -25,6 +25,7 @@ using namespace boost;
 //
 // Global state
 //
+extern bool fRequestShutdown; // defined in the init.cpp
 
 CCriticalSection cs_setpwalletRegistered;
 set<CWallet*> setpwalletRegistered;
@@ -34,7 +35,7 @@ CCriticalSection cs_main;
 CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
-map<uint256, CBlockIndex*> mapBlockIndex;
+map<uint256, CBlockIndex*, uintLexLess> mapBlockIndex;
 set<pair<COutPoint, unsigned int> > setStakeSeen;
 uint256 hashGenesisBlock = hashGenesisBlockOfficial;
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 32);
@@ -5219,7 +5220,7 @@ void BitcoinMiner(CWallet *pwallet, bool fProofOfStake)
     // Compute timeout for pos as sqrt(numUTXO)
     std::vector<COutput> vCoins;
     pwalletMain->AvailableCoins(vCoins, false);
-    unsigned int pos_timio = 500 + 20 * sqrt(vCoins.size());
+    unsigned int pos_timio = 500 + 30 * sqrt(vCoins.size());
     printf("Set proof-of-stake timeout: %ums for %lu UTXOs\n", pos_timio, (unsigned long)vCoins.size());
     vCoins.clear();
 
@@ -5438,7 +5439,8 @@ void static ThreadStakeMinter(void* parg)
     catch (std::exception& e) {
         PrintException(&e, "ThreadStakeMinter()");
     } catch (...) {
-        PrintException(NULL, "ThreadStakeMinter()");
+	if(!fRequestShutdown)
+            PrintException(NULL, "ThreadStakeMinter()");
     }
     printf("ThreadStakeMinter exiting\n");
 }

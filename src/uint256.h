@@ -31,6 +31,14 @@ protected:
     uint32_t pn[WIDTH];
 public:
 
+    bool LexLess(const base_uint& b) const {
+	return memcmp(pn, b.pn, BITS >> 3) < 0;
+    }
+
+    const uint32_t *GetDataPtr() const {
+	return pn;
+    }
+
     bool operator!() const
     {
         for (int i = 0; i < WIDTH; i++)
@@ -626,7 +634,7 @@ inline const uint256 operator|(const uint256& a, const base_uint256& b) { return
 inline const uint256 operator+(const uint256& a, const base_uint256& b) { return (base_uint256)a +  (base_uint256)b; }
 inline const uint256 operator-(const uint256& a, const base_uint256& b) { return (base_uint256)a -  (base_uint256)b; }
 
-inline bool operator<(const uint256& a, const uint256& b)               { return (base_uint256)a <  (base_uint256)b; }
+inline bool operator<(const uint256& a, const uint256& b)               { return (base_uint256)a <  (base_uint256)b; } // 25% CPU!!
 inline bool operator<=(const uint256& a, const uint256& b)              { return (base_uint256)a <= (base_uint256)b; }
 inline bool operator>(const uint256& a, const uint256& b)               { return (base_uint256)a >  (base_uint256)b; }
 inline bool operator>=(const uint256& a, const uint256& b)              { return (base_uint256)a >= (base_uint256)b; }
@@ -639,12 +647,17 @@ inline const uint256 operator+(const uint256& a, const uint256& b)      { return
 inline const uint256 operator-(const uint256& a, const uint256& b)      { return (base_uint256)a -  (base_uint256)b; }
 
 
-
-
-
-
-
-
+// Comparator memcmp() instead of ariphmetic.
+// Increases performance slightly, if use in map<> 3rd arg
+class uintLexLess {
+    public:
+    bool operator()(const uint256& a, const uint256& b) const {
+      return ((base_uint256)a).LexLess((base_uint256)b);
+    }
+    bool operator()(const uint160& a, const uint160& b) const {
+      return ((base_uint160)a).LexLess((base_uint160)b);
+    }
+};
 
 
 #ifdef TEST_UINT256

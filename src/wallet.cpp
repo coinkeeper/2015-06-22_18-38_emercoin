@@ -1389,6 +1389,11 @@ bool CWallet::CreateTransaction(CScript scriptPubKey, int64 nValue,
     return CreateTransaction(vecSend, wtxNew, reservekey, nFeeRet, strFailReason);
 }
 
+// Cache of pairs <CBlockHeader, CDiskTxPos>
+// For dcrease system loading during stake
+static map<uint256, pair<CBlockHeader, CDiskTxPos>, uintLexLess> CacheBlockHD;
+//static uint256HashMap<pair<CBlockHeader, CDiskTxPos> >CacheBlockHD;
+
 // ppcoin: create coin stake transaction
 bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64 nSearchInterval, CTransaction& txNew)
 {
@@ -1429,20 +1434,36 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         return false;
     int64 nCredit = 0;
     CScript scriptPubKeyKernel;
+
+    // CacheBlockHD.Set(setCoins.size() << 1);
     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
     {
-        CDiskTxPos postx;
-        if (!pblocktree->ReadTxIndex(pcoin.first->GetHash(), postx))
+
+        uint256 txHash(pcoin.first->GetHash());
+        //uint256HashMap<pair<CBlockHeader, CDiskTxPos> >::Data *pd = CacheBlockHD.Search(txHash);
+	if(!CacheBlockHD.count(txHash)) {
+	// if(pd == NULL) {
+          CDiskTxPos postx;
+          if (!pblocktree->ReadTxIndex(txHash, postx))
             continue;
 
-        // Read block header
-        CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
-        CBlockHeader header;
-        try {
-            file >> header;
-        } catch (std::exception &e) {
+          // Read block header
+          CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
+          try {
+	    CBlockHeader bh;
+	    file >> bh;
+            CacheBlockHD[txHash] = pair<CBlockHeader, CDiskTxPos>(bh, postx);
+            // pd = CacheBlockHD.Insert(txHash, pair<CBlockHeader, CDiskTxPos>(bh, postx));
+          } catch (std::exception &e) {
             return error("%s() : deserialize or I/O error in CreateCoinStake()", __PRETTY_FUNCTION__);
-        }
+          }
+	} // end of fill cache
+
+        pair<CBlockHeader, CDiskTxPos> &cached(CacheBlockHD[txHash]);
+        //pair<CBlockHeader, CDiskTxPos> &cached = &(pd->value);
+        CBlockHeader &header(cached.first);
+        CDiskTxPos   &postx(cached.second);
+
 
         static int nMaxStakeSearchInterval = 60;
         if (header.GetBlockTime() + nStakeMinAge > txNew.nTime - nMaxStakeSearchInterval)

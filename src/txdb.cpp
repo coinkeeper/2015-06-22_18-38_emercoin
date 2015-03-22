@@ -41,10 +41,15 @@ CBlockIndex *CCoinsViewDB::GetBestBlock() {
     uint256 hashBestChain;
     if (!db.Read('B', hashBestChain))
         return NULL;
-    std::map<uint256, CBlockIndex*>::iterator it = mapBlockIndex.find(hashBestChain);
-    if (it == mapBlockIndex.end())
+    //std::map<uint256, CBlockIndex*>::iterator it = mapBlockIndex.find(hashBestChain);
+    //if (it == mapBlockIndex.end())
+    //    return NULL;
+    //return it->second;
+
+    uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hashBestChain);
+    if(pd == NULL)
         return NULL;
-    return it->second;
+    return pd->value;
 }
 
 bool CCoinsViewDB::SetBestBlock(CBlockIndex *pindex) {

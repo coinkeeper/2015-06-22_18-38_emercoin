@@ -174,11 +174,14 @@ Value getblock(const Array& params, bool fHelp)
     std::string strHash = params[0].get_str();
     uint256 hash(strHash);
 
-    if (mapBlockIndex.count(hash) == 0)
+    // if (mapBlockIndex.count(hash) == 0)
+    uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hash);
+      if(pd == NULL)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
     CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
+    // CBlockIndex* pblockindex = mapBlockIndex[hash];
+    CBlockIndex* pblockindex = pd->value;
     block.ReadFromDisk(pblockindex);
 
     return blockToJSON(block, pblockindex, params.size() > 1 ? params[1].get_bool() : false);

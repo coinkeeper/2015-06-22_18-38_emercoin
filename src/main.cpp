@@ -35,7 +35,9 @@ CCriticalSection cs_main;
 CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
-map<uint256, CBlockIndex*, uintLexLess> mapBlockIndex;
+// map<uint256, CBlockIndex*, uintLexLess> mapBlockIndex;
+uint256HashMap<CBlockIndex*> mapBlockIndex;
+
 set<pair<COutPoint, unsigned int> > setStakeSeen;
 uint256 hashGenesisBlock = hashGenesisBlockOfficial;
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 32);
@@ -561,10 +563,13 @@ int CMerkleTx::SetMerkleBranch(const CBlock* pblock)
     }
 
     // Is the tx in a block that's in the main chain
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi == mapBlockIndex.end())
+    // map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+    uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hashBlock);
+    //if (mi == mapBlockIndex.end())
+    if (pd == NULL)
         return 0;
-    CBlockIndex* pindex = (*mi).second;
+    //CBlockIndex* pindex = (*mi).second;
+    CBlockIndex* pindex = pd->value;
     if (!pindex || !pindex->IsInMainChain())
         return 0;
 
@@ -968,10 +973,14 @@ int CMerkleTx::GetDepthInMainChain(CBlockIndex* &pindexRet) const
         return 0;
 
     // Find the block it claims to be in
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi == mapBlockIndex.end())
+    //map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+    //if (mi == mapBlockIndex.end())
+    uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hashBlock);
+    if(pd == NULL)
         return 0;
-    CBlockIndex* pindex = (*mi).second;
+
+    //CBlockIndex* pindex = (*mi).second;
+    CBlockIndex* pindex = pd->value;
     if (!pindex || !pindex->IsInMainChain())
         return 0;
 
@@ -2211,18 +2220,23 @@ bool CBlock::AddToBlockIndex(CValidationState &state, const CDiskBlockPos &pos)
 {
     // Check for duplicate
     uint256 hash = GetHash();
-    if (mapBlockIndex.count(hash))
+    if (mapBlockIndex.Search(hash) != NULL)
         return state.Invalid(error("AddToBlockIndex() : %s already exists", hash.ToString().c_str()));
 
     // Construct new block index object
     CBlockIndex* pindexNew = new CBlockIndex(*this);
     assert(pindexNew);
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
-    pindexNew->phashBlock = &((*mi).first);
-    map<uint256, CBlockIndex*>::iterator miPrev = mapBlockIndex.find(hashPrevBlock);
-    if (miPrev != mapBlockIndex.end())
+    // map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
+    uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Insert(hash, pindexNew);
+    //pindexNew->phashBlock = &((*mi).first);
+    pindexNew->phashBlock = &(pd->key);
+    //map<uint256, CBlockIndex*>::iterator miPrev = mapBlockIndex.find(hashPrevBlock);
+    uint256HashMap<CBlockIndex*>::Data *pdPrev = mapBlockIndex.Search(hashPrevBlock);
+    //if (miPrev != mapBlockIndex.end())
+    if (pdPrev != NULL)
     {
-        pindexNew->pprev = (*miPrev).second;
+        //pindexNew->pprev = (*miPrev).second;
+        pindexNew->pprev = pdPrev->value;
         pindexNew->nHeight = pindexNew->pprev->nHeight + 1;
     }
     pindexNew->nTx = vtx.size();
@@ -2493,17 +2507,20 @@ bool CBlock::AcceptBlock(CValidationState &state, CDiskBlockPos *dbp)
 {
     // Check for duplicate
     uint256 hash = GetHash();
-    if (mapBlockIndex.count(hash))
+    if (mapBlockIndex.Search(hash) != NULL)
         return state.Invalid(error("AcceptBlock() : block already in mapBlockIndex"));
 
     // Get prev block index
     CBlockIndex* pindexPrev = NULL;
     int nHeight = 0;
     if (hash != hashGenesisBlock) {
-        map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashPrevBlock);
-        if (mi == mapBlockIndex.end())
+        //map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashPrevBlock);
+	uint256HashMap<CBlockIndex*>::Data *pdPrev = mapBlockIndex.Search(hashPrevBlock);
+        // if (mi == mapBlockIndex.end())
+	if(pdPrev == NULL)
             return state.DoS(10, error("AcceptBlock() : prev block not found"));
-        pindexPrev = (*mi).second;
+        // pindexPrev = (*mi).second;
+        pindexPrev = pdPrev->value;
         nHeight = pindexPrev->nHeight+1;
 
         if (nHeight > 10000)
@@ -2611,8 +2628,10 @@ bool ProcessBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, CDiskBl
 {
     // Check for duplicate
     uint256 hash = pblock->GetHash();
-    if (mapBlockIndex.count(hash))
-        return state.Invalid(error("ProcessBlock() : already have block %d %s", mapBlockIndex[hash]->nHeight, hash.ToString().c_str()));
+    if (mapBlockIndex.Search(hash) != NULL)
+        //return state.Invalid(error("ProcessBlock() : already have block %d %s", mapBlockIndex[hash]->nHeight, hash.ToString().c_str()));
+        return state.Invalid(error("ProcessBlock() : already have block %d %s", mapBlockIndex.Search(hash)->value->nHeight, 
+		    hash.ToString().c_str()));
     if (mapOrphanBlocks.count(hash))
         return state.Invalid(error("ProcessBlock() : already have block (orphan) %s", hash.ToString().c_str()));
 
@@ -2689,7 +2708,8 @@ bool ProcessBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, CDiskBl
         AskForPendingSyncCheckpoint(pfrom);
 
     // If we don't already have its previous block, shunt it off to holding area until we get it
-    if (pblock->hashPrevBlock != 0 && !mapBlockIndex.count(pblock->hashPrevBlock))
+    // if (pblock->hashPrevBlock != 0 && !mapBlockIndex.count(pblock->hashPrevBlock))
+    if (pblock->hashPrevBlock != 0 && mapBlockIndex.Search(pblock->hashPrevBlock) == NULL)
     {
         printf("ProcessBlock: ORPHAN BLOCK, prev=%s\n", pblock->hashPrevBlock.ToString().c_str());
 
@@ -3044,17 +3064,21 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
         return NULL;
 
     // Return existing
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-    if (mi != mapBlockIndex.end())
-        return (*mi).second;
+    //map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+    //if (mi != mapBlockIndex.end())
+    //    return (*mi).second;
+    uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hash);
+    if(pd != NULL)
+	return pd->value;
 
     // Create new
     CBlockIndex* pindexNew = new CBlockIndex();
     if (!pindexNew)
         throw runtime_error("LoadBlockIndex() : new CBlockIndex failed");
-    mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
-    pindexNew->phashBlock = &((*mi).first);
-
+    //mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
+    // pindexNew->phashBlock = &((*mi).first);
+    pd = mapBlockIndex.Insert(hash, pindexNew);
+    pindexNew->phashBlock = &(pd->key);
     return pindexNew;
 }
 
@@ -3068,11 +3092,17 @@ bool static LoadBlockIndexDB()
     // Calculate nChainTrust
     vector<pair<int, CBlockIndex*> > vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
-    BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
-    {
-        CBlockIndex* pindex = item.second;
-        vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
+    //BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
+    //{
+    //    CBlockIndex* pindex = item.second;
+    //    vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
+    //}
+
+    for(uint256HashMap<CBlockIndex*>::Data *p = mapBlockIndex.First(); p != NULL; p = mapBlockIndex.Next(p)) {
+	 CBlockIndex* pindex = p->value;
+	 vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
     }
+
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
     BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
     {
@@ -3361,13 +3391,18 @@ void PrintBlockTree()
 {
     // pre-compute tree structure
     map<CBlockIndex*, vector<CBlockIndex*> > mapNext;
-    for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
-    {
-        CBlockIndex* pindex = (*mi).second;
-        mapNext[pindex->pprev].push_back(pindex);
+    //for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
+    //{
+    //    CBlockIndex* pindex = (*mi).second;
+    //    mapNext[pindex->pprev].push_back(pindex);
         // test
         //while (rand() % 3 == 0)
         //    mapNext[pindex->pprev].push_back(pindex);
+    //}
+
+    for(uint256HashMap<CBlockIndex*>::Data *p = mapBlockIndex.First(); p != NULL; p = mapBlockIndex.Next(p)) {
+	CBlockIndex* pindex = p->value;
+        mapNext[pindex->pprev].push_back(pindex);
     }
 
     vector<pair<int, CBlockIndex*> > vStack;
@@ -3614,7 +3649,8 @@ bool static AlreadyHave(const CInv& inv)
                 pcoinsTip->HaveCoins(inv.hash);
         }
     case MSG_BLOCK:
-        return mapBlockIndex.count(inv.hash) ||
+        //return mapBlockIndex.count(inv.hash) ||
+        return mapBlockIndex.Search(inv.hash) != NULL||
                mapOrphanBlocks.count(inv.hash);
     }
     // Don't know what it is, just say we already got one
@@ -3646,12 +3682,15 @@ void static ProcessGetData(CNode* pfrom)
             if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK)
             {
                 // Send block from disk
-                map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(inv.hash);
-                if (mi != mapBlockIndex.end())
+                // map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(inv.hash);
+                uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(inv.hash);
+                //if (mi != mapBlockIndex.end())
+                if (pd != NULL)
                 {
                     found = true;
                     CBlock block;
-                    block.ReadFromDisk((*mi).second);
+                    // block.ReadFromDisk((*mi).second);
+                    block.ReadFromDisk(pd->value);
                     if (inv.type == MSG_BLOCK)
                         pfrom->PushMessage("block", block);
                     else // MSG_FILTERED_BLOCK)
@@ -3998,7 +4037,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
                 // In case we are on a very long side-chain, it is possible that we already have
                 // the last block in an inv bundle sent in response to getblocks. Try to detect
                 // this situation and push another getblocks to continue.
-                pfrom->PushGetBlocks(mapBlockIndex[inv.hash], uint256(0));
+                // pfrom->PushGetBlocks(mapBlockIndex[inv.hash], uint256(0));
+                pfrom->PushGetBlocks(mapBlockIndex.Search(inv.hash)->value, uint256(0));
                 if (fDebug)
                     printf("force request: %s\n", inv.ToString().c_str());
             }
@@ -4078,10 +4118,15 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         if (locator.IsNull())
         {
             // If locator is null, return the hashStop block
-            map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashStop);
-            if (mi == mapBlockIndex.end())
+         //   map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashStop);
+         //   if (mi == mapBlockIndex.end())
+         //       return true;
+         //   pindex = (*mi).second;
+
+            uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hashStop);
+	      if(pd == NULL)
                 return true;
-            pindex = (*mi).second;
+            pindex = pd->value;
         }
         else
         {
@@ -5513,9 +5558,9 @@ public:
     CMainCleanup() {}
     ~CMainCleanup() {
         // block headers
-        std::map<uint256, CBlockIndex*>::iterator it1 = mapBlockIndex.begin();
-        for (; it1 != mapBlockIndex.end(); it1++)
-            delete (*it1).second;
+        //std::map<uint256, CBlockIndex*>::iterator it1 = mapBlockIndex.begin();
+        //for (; it1 != mapBlockIndex.end(); it1++)
+        //    delete (*it1).second;
         mapBlockIndex.clear();
 
         // orphan blocks

@@ -11,6 +11,8 @@
 #include "net.h"
 #include "script.h"
 
+#include "uint256hm.h"
+
 #include <list>
 
 class CWallet;
@@ -85,7 +87,8 @@ extern CScript COINBASE_FLAGS;
 
 
 extern CCriticalSection cs_main;
-extern std::map<uint256, CBlockIndex*, uintLexLess> mapBlockIndex;
+// extern std::map<uint256, CBlockIndex*, uintLexLess> mapBlockIndex;
+extern uint256HashMap<CBlockIndex*> mapBlockIndex;
 extern std::set<std::pair<COutPoint, unsigned int> > setStakeSeen;
 extern std::set<CBlockIndex*, CBlockIndexWorkComparator> setBlockIndexValid;
 extern uint256 hashGenesisBlock;
@@ -2221,9 +2224,12 @@ public:
 
     explicit CBlockLocator(uint256 hashBlock)
     {
-        std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
-        if (mi != mapBlockIndex.end())
-            Set((*mi).second);
+        uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hashBlock);
+	if(pd != NULL)
+	    Set(pd->value);
+        //std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+        //if (mi != mapBlockIndex.end())
+        //   Set((*mi).second);
     }
 
     CBlockLocator(const std::vector<uint256>& vHaveIn)
@@ -2272,13 +2278,17 @@ public:
         int nStep = 1;
         BOOST_FOREACH(const uint256& hash, vHave)
         {
-            std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
-                CBlockIndex* pindex = (*mi).second;
-                if (pindex->IsInMainChain())
-                    return nDistance;
-            }
+            uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hash);
+	    if(pd != NULL && pd->value->IsInMainChain()) 
+              return nDistance;
+
+            //std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+            //if (mi != mapBlockIndex.end())
+            // {
+            //     CBlockIndex* pindex = (*mi).second;
+            //     if (pindex->IsInMainChain())
+            //         return nDistance;
+           //}
             nDistance += nStep;
             if (nDistance > 10)
                 nStep *= 2;
@@ -2291,13 +2301,17 @@ public:
         // Find the first block the caller has in the main chain
         BOOST_FOREACH(const uint256& hash, vHave)
         {
-            std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
-                CBlockIndex* pindex = (*mi).second;
-                if (pindex->IsInMainChain())
-                    return pindex;
-            }
+            uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hash);
+	    if(pd != NULL && pd->value->IsInMainChain()) 
+              return pd->value;
+
+            //std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+            //if (mi != mapBlockIndex.end())
+            //{
+            //    CBlockIndex* pindex = (*mi).second;
+            //    if (pindex->IsInMainChain())
+            //        return pindex;
+            //}
         }
         return pindexGenesisBlock;
     }
@@ -2307,13 +2321,16 @@ public:
         // Find the first block the caller has in the main chain
         BOOST_FOREACH(const uint256& hash, vHave)
         {
-            std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
-                CBlockIndex* pindex = (*mi).second;
-                if (pindex->IsInMainChain())
-                    return hash;
-            }
+            uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(hash);
+	    if(pd != NULL && pd->value->IsInMainChain()) 
+              return hash;
+            //std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+            //if (mi != mapBlockIndex.end())
+            //{
+            //    CBlockIndex* pindex = (*mi).second;
+            //    if (pindex->IsInMainChain())
+            //        return hash;
+            //}
         }
         return hashGenesisBlock;
     }

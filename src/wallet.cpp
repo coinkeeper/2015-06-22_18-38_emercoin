@@ -13,6 +13,8 @@
 #include "txdb.h"
 #include <boost/algorithm/string/replace.hpp>
 
+#include "uint256hm.h"
+
 using namespace std;
 
 
@@ -393,7 +395,9 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
             wtx.nTimeSmart = wtx.nTimeReceived;
             if (wtxIn.hashBlock != 0)
             {
-                if (mapBlockIndex.count(wtxIn.hashBlock))
+                // if (mapBlockIndex.count(wtxIn.hashBlock))
+                uint256HashMap<CBlockIndex*>::Data *pd = mapBlockIndex.Search(wtxIn.hashBlock);
+                if (pd != NULL)
                 {
                     unsigned int latestNow = wtx.nTimeReceived;
                     unsigned int latestEntry = 0;
@@ -427,7 +431,8 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
                         }
                     }
 
-                    unsigned int& blocktime = mapBlockIndex[wtxIn.hashBlock]->nTime;
+                    //unsigned int& blocktime = mapBlockIndex[wtxIn.hashBlock]->nTime;
+                    unsigned int& blocktime = pd->value->nTime;
                     wtx.nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
                 }
                 else
@@ -1391,8 +1396,8 @@ bool CWallet::CreateTransaction(CScript scriptPubKey, int64 nValue,
 
 // Cache of pairs <CBlockHeader, CDiskTxPos>
 // For dcrease system loading during stake
-static map<uint256, pair<CBlockHeader, CDiskTxPos>, uintLexLess> CacheBlockHD;
-//static uint256HashMap<pair<CBlockHeader, CDiskTxPos> >CacheBlockHD;
+///* static map<uint256, pair<CBlockHeader, CDiskTxPos>, uintLexLess> CacheBlockHD;
+static uint256HashMap<pair<CBlockHeader, CDiskTxPos> >CacheBlockHD;
 
 // ppcoin: create coin stake transaction
 bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64 nSearchInterval, CTransaction& txNew)
@@ -1435,14 +1440,14 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     int64 nCredit = 0;
     CScript scriptPubKeyKernel;
 
-    // CacheBlockHD.Set(setCoins.size() << 1);
+    CacheBlockHD.Set(setCoins.size());
     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
     {
 
         uint256 txHash(pcoin.first->GetHash());
-        //uint256HashMap<pair<CBlockHeader, CDiskTxPos> >::Data *pd = CacheBlockHD.Search(txHash);
-	if(!CacheBlockHD.count(txHash)) {
-	// if(pd == NULL) {
+        uint256HashMap<pair<CBlockHeader, CDiskTxPos> >::Data *pd = CacheBlockHD.Search(txHash);
+	///*if(!CacheBlockHD.count(txHash)) {
+	if(pd == NULL) {
           CDiskTxPos postx;
           if (!pblocktree->ReadTxIndex(txHash, postx))
             continue;
@@ -1452,15 +1457,16 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
           try {
 	    CBlockHeader bh;
 	    file >> bh;
-            CacheBlockHD[txHash] = pair<CBlockHeader, CDiskTxPos>(bh, postx);
-            // pd = CacheBlockHD.Insert(txHash, pair<CBlockHeader, CDiskTxPos>(bh, postx));
+            ///* CacheBlockHD[txHash] = pair<CBlockHeader, CDiskTxPos>(bh, postx);
+	    pair<CBlockHeader, CDiskTxPos> x(bh, postx);
+            pd = CacheBlockHD.Insert(txHash, x);
           } catch (std::exception &e) {
             return error("%s() : deserialize or I/O error in CreateCoinStake()", __PRETTY_FUNCTION__);
           }
 	} // end of fill cache
 
-        pair<CBlockHeader, CDiskTxPos> &cached(CacheBlockHD[txHash]);
-        //pair<CBlockHeader, CDiskTxPos> &cached = &(pd->value);
+        ///*pair<CBlockHeader, CDiskTxPos> &cached(CacheBlockHD[txHash]);
+        pair<CBlockHeader, CDiskTxPos> &cached = pd->value;
         CBlockHeader &header(cached.first);
         CDiskTxPos   &postx(cached.second);
 

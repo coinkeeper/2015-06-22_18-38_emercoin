@@ -449,6 +449,10 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
  */
 bool AppInit2(boost::thread_group& threadGroup)
 {
+    // Before usage, neede allocate memory for hash map structure.
+    // There is number of blocks, expected for specified time 
+     mapBlockIndex.Set(15000 + (time(NULL) - 1386628020) / 445);
+
     // ********************************************************* Step 1: setup
 #ifdef _MSC_VER
     // Turn off Microsoft heap dump noise
@@ -933,12 +937,15 @@ bool AppInit2(boost::thread_group& threadGroup)
     {
         string strMatch = mapArgs["-printblock"];
         int nFound = 0;
-        for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
+	for(uint256HashMap<CBlockIndex*>::Data *p = mapBlockIndex.First(); p != NULL; p = mapBlockIndex.Next(p))
+        // for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
         {
-            uint256 hash = (*mi).first;
+            //uint256 hash = (*mi).first;
+            uint256 hash = p->key;
             if (strncmp(hash.ToString().c_str(), strMatch.c_str(), strMatch.size()) == 0)
             {
-                CBlockIndex* pindex = (*mi).second;
+                //CBlockIndex* pindex = (*mi).second;
+                CBlockIndex* pindex = p->value;
                 CBlock block;
                 block.ReadFromDisk(pindex);
                 block.BuildMerkleTree();

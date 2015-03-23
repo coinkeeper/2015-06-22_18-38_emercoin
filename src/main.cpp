@@ -5265,7 +5265,7 @@ void BitcoinMiner(CWallet *pwallet, bool fProofOfStake)
     // Compute timeout for pos as sqrt(numUTXO)
     std::vector<COutput> vCoins;
     pwalletMain->AvailableCoins(vCoins, false);
-    unsigned int pos_timio = 500 + 30 * sqrt(vCoins.size());
+    unsigned int pos_timio = GetArg("-staketimio", 500) + 30 * sqrt(vCoins.size());
     printf("Set proof-of-stake timeout: %ums for %lu UTXOs\n", pos_timio, (unsigned long)vCoins.size());
     vCoins.clear();
 

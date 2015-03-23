@@ -275,6 +275,7 @@ static bool GetKernelStakeModifier(uint256 hashBlockFrom, uint64& nStakeModifier
     const CBlockIndex* pindex = pindexFrom;
     // loop to find the stake modifier later by a selection interval
 /// 7% return false;
+// -- loop ~1500 blocks!!!
     int64 nStakeBarrier = pindexFrom->GetBlockTime() + nStakeModifierSelectionInterval;
     //while (nStakeModifierTime < pindexFrom->GetBlockTime() + nStakeModifierSelectionInterval)
     while (nStakeModifierTime < nStakeBarrier)

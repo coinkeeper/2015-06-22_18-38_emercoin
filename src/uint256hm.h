@@ -50,6 +50,8 @@ public:
   }
 
   void clear() { // cleanup hashtable, no delete memory
+      if(m_data == NULL)
+	  return;
       for(uint32_t i = 0; i <= m_mask; i++)
 	  m_data[i].next = -1; // mark as free
       uint32_t x = m_mask + 1;

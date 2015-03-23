@@ -1027,6 +1027,15 @@ int64 CWallet::GetImmatureBalance() const
 // nSpendTime == 0 will ignore nSpendTime check
 void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, unsigned int nSpendTime) const
 {
+    // Lllet.cppocal cache for mint stake 
+    // Cache used only for fOnlyConfirmed flag, update every 256 requests (~5 mins)
+    static vector<COutput> vCachedCoins;
+    static uint8_t cnt = 0;
+    if(fOnlyConfirmed && ++cnt) {
+      vCoins = vCachedCoins;
+      return;
+    }
+
     vCoins.clear();
 
     {
@@ -1052,8 +1061,9 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, unsig
                     !IsLockedCoin((*it).first, i) && pcoin->vout[i].nValue > 0)
                     vCoins.push_back(COutput(pcoin, i, pcoin->GetDepthInMainChain()));
             }
-        }
+        } // for
     }
+    vCachedCoins = vCoins;
 }
 
 static void ApproximateBestSubset(vector<pair<int64, pair<const CWalletTx*,unsigned int> > >vValue, int64 nTotalLower, int64 nTargetValue,

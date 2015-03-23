@@ -21,6 +21,10 @@ unsigned int nProtocolV04TestSwitchTime = 1430438400; // Fri, 01 May 2015 00:00:
 // Set to 6-hour for production network and 20-minute for test network
 unsigned int nModifierInterval = MODIFIER_INTERVAL;
 
+
+// Cache for stake modifiers
+uint256HashMap<StakeMod> StakeModCache;
+
 // Hard checkpoints of stake modifiers to ensure they are deterministic
 static std::map<int, unsigned int> mapStakeModifierCheckpoints =
     boost::assign::map_list_of
@@ -256,10 +260,23 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexCurrent, uint64& nStakeMo
     return true;
 }
 
+
+
+
 // The stake modifier used to hash for a stake kernel is chosen as the stake
 // modifier about a selection interval later than the coin generating the kernel
 static bool GetKernelStakeModifier(uint256 hashBlockFrom, uint64& nStakeModifier, int& nStakeModifierHeight, int64& nStakeModifierTime, bool fPrintProofOfStake)
 {
+  
+  uint256HashMap<StakeMod>::Data *pcache = StakeModCache.Search(hashBlockFrom);
+  if(pcache != NULL) {
+     nStakeModifier = pcache->value.nStakeModifier;
+     nStakeModifierHeight = pcache->value.nStakeModifierHeight;
+     nStakeModifierTime = pcache->value.nStakeModifierTime;
+     return true;
+  }
+
+
     nStakeModifier = 0;
 
     //if (!mapBlockIndex.count(hashBlockFrom))
@@ -296,6 +313,14 @@ static bool GetKernelStakeModifier(uint256 hashBlockFrom, uint64& nStakeModifier
         }
     }
     nStakeModifier = pindex->nStakeModifier;
+
+    struct StakeMod sm;
+    sm.nStakeModifier = nStakeModifier;
+    sm.nStakeModifierHeight = nStakeModifierHeight;
+    sm.nStakeModifierTime = nStakeModifierTime;
+
+    StakeModCache.Insert(hashBlockFrom, sm);
+
     return true;
 }
 

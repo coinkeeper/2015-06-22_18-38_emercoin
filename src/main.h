@@ -2538,4 +2538,18 @@ public:
     )
 };
 
+/*---------------------------------------------------------------------*/
+// This is definitions for kernel.cpp for StakeModifier cache
+// Need define here, for correct setup size from main.cpp (UTXO qty)
+
+struct StakeMod {
+  uint64 nStakeModifier;
+  int64 nStakeModifierTime;
+  int nStakeModifierHeight;
+};
+
+extern uint256HashMap<StakeMod> StakeModCache;
+
+
+
 #endif

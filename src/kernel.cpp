@@ -64,9 +64,14 @@ static int64 GetStakeModifierSelectionIntervalSection(int nSection)
 // Get stake modifier selection interval (in seconds)
 static int64 GetStakeModifierSelectionInterval()
 {
-    int64 nSelectionInterval = 0;
-    for (int nSection=0; nSection<64; nSection++)
+    static unsigned int prev_nModifierInterval = ~0;
+    static int64 nSelectionInterval = 0;
+    if(prev_nModifierInterval != nModifierInterval) {
+      prev_nModifierInterval = nModifierInterval;
+      nSelectionInterval = 0;
+      for (int nSection=0; nSection<64; nSection++)
         nSelectionInterval += GetStakeModifierSelectionIntervalSection(nSection);
+    }
     return nSelectionInterval;
 }
 
@@ -269,7 +274,10 @@ static bool GetKernelStakeModifier(uint256 hashBlockFrom, uint64& nStakeModifier
     int64 nStakeModifierSelectionInterval = GetStakeModifierSelectionInterval();
     const CBlockIndex* pindex = pindexFrom;
     // loop to find the stake modifier later by a selection interval
-    while (nStakeModifierTime < pindexFrom->GetBlockTime() + nStakeModifierSelectionInterval)
+/// 7% return false;
+    int64 nStakeBarrier = pindexFrom->GetBlockTime() + nStakeModifierSelectionInterval;
+    //while (nStakeModifierTime < pindexFrom->GetBlockTime() + nStakeModifierSelectionInterval)
+    while (nStakeModifierTime < nStakeBarrier)
     {
         if (!pindex->pnext)
         {   // reached best block; may happen if node is behind on block chain
@@ -330,6 +338,8 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, uns
     // to secure the network when proof-of-stake difficulty is low
     int64 nTimeWeight = min((int64)nTimeTx - txPrev.nTime, (int64)STAKE_MAX_AGE) - (IsProtocolV03(nTimeTx)? nStakeMinAge : 0);
     CBigNum bnCoinDayWeight = CBigNum(nValueIn) * nTimeWeight / COIN / (24 * 60 * 60);
+
+/// 7% return false;
     // Calculate hash
     CDataStream ss(SER_GETHASH, 0);
     uint64 nStakeModifier = 0;
@@ -337,6 +347,7 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, uns
     int64 nStakeModifierTime = 0;
     if (IsProtocolV03(nTimeTx))  // v0.3 protocol
     {
+/// 7.28% return false;
         if (!GetKernelStakeModifier(blockFrom.GetHash(), nStakeModifier, nStakeModifierHeight, nStakeModifierTime, fPrintProofOfStake))
             return false;
         ss << nStakeModifier;
@@ -345,9 +356,10 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, uns
     {
         ss << nBits;
     }
-
+/// 18% return false;
     ss << nTimeBlockFrom << nTxPrevOffset << txPrev.nTime << prevout.n << nTimeTx;
     hashProofOfStake = Hash(ss.begin(), ss.end());
+/// 18% return false;
     if (fPrintProofOfStake)
     {
         if (IsProtocolV03(nTimeTx))

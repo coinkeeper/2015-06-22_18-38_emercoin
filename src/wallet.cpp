@@ -1027,6 +1027,8 @@ int64 CWallet::GetImmatureBalance() const
 // nSpendTime == 0 will ignore nSpendTime check
 void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, unsigned int nSpendTime) const
 {
+#if 0
+    Temporary disanled
     // Lllet.cppocal cache for mint stake 
     // Cache used only for fOnlyConfirmed flag, update every 256 requests (~5 mins)
     static vector<COutput> vCachedCoins;
@@ -1035,7 +1037,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, unsig
       vCoins = vCachedCoins;
       return;
     }
-
+#endif
     vCoins.clear();
 
     {
@@ -1063,7 +1065,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, unsig
             }
         } // for
     }
-    vCachedCoins = vCoins;
+    // vCachedCoins = vCoins;
 }
 
 static void ApproximateBestSubset(vector<pair<int64, pair<const CWalletTx*,unsigned int> > >vValue, int64 nTotalLower, int64 nTargetValue,
@@ -1449,7 +1451,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         return false;
     int64 nCredit = 0;
     CScript scriptPubKeyKernel;
-
+// 6.5 % return false;
     CacheBlockHD.Set(setCoins.size());
     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
     {
@@ -1480,6 +1482,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         CBlockHeader &header(cached.first);
         CDiskTxPos   &postx(cached.second);
 
+// 7% continue; 
 
         static int nMaxStakeSearchInterval = 60;
         if (header.GetBlockTime() + nStakeMinAge > txNew.nTime - nMaxStakeSearchInterval)
@@ -1492,6 +1495,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
             // Search nSearchInterval seconds back up to nMaxStakeSearchInterval
             uint256 hashProofOfStake = 0;
             COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
+/// if (0 && = 7%
             if (CheckStakeKernelHash(nBits, header, postx.nTxOffset + sizeof(CBlockHeader), *pcoin.first, prevoutStake, txNew.nTime - n, hashProofOfStake))
             {
                 // Found a kernel
@@ -1546,6 +1550,9 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         if (fKernelFound)
             break; // if kernel is found stop searching
     }
+
+/// 18% return false;
+
     if (nCredit == 0 || nCredit > nBalance - nReserveBalance)
         return false;
     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)

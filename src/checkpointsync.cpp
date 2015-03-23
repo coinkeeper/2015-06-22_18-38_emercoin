@@ -177,7 +177,7 @@ bool AcceptPendingSyncCheckpoint()
     LOCK(cs_hashSyncCheckpoint);
     uint256HashMap<CBlockIndex*>::Data *pd;
     // if (hashPendingCheckpoint != 0 && mapBlockIndex.count(hashPendingCheckpoint))
-    if (hashPendingCheckpoint != 0 && (pd = mapBlockIndex.Search(hashSyncCheckpoint)) != NULL)
+    if (hashPendingCheckpoint != 0 && (pd = mapBlockIndex.Search(hashPendingCheckpoint)) != NULL)
     {
         if (!ValidateSyncCheckpoint(hashPendingCheckpoint))
         {
